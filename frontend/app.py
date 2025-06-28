@@ -8,6 +8,24 @@ import pandas as pd
 from datetime import datetime
 import io
 
+# Configure page
+st.set_page_config(
+    page_title="SEO Audit Tool",
+    page_icon="🔍",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Get the directory where this script is located
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Get the project root directory (parent of frontend)
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+# Define shared directory path
+SHARED_DIR = os.path.join(PROJECT_ROOT, "shared")
+
+# Ensure shared directory exists
+os.makedirs(SHARED_DIR, exist_ok=True)
+
 def is_valid_url(url):
     return re.match(r"^https?://", url)
 
@@ -21,39 +39,38 @@ def extract_urls_from_text(text):
 def create_csv_download(report):
     """Create CSV data from the audit report."""
     rows = []
-    for page in report['pages']:
+    for page in report.get('pages', []):
         # Main page info
         row = {
-            'URL': page['url'],
-            'Title': page['title'],
-            'Meta Description': page['meta_description'],
-            'Headings Count': len(page['headings']),
-            'Broken Links Count': len(page['broken_links']) if page['broken_links'] else 0
+            'URL': page.get('url', ''),
+            'Title': page.get('title', ''),
+            'Meta Description': page.get('meta_description', ''),
+            'Headings Count': len(page.get('headings', [])),
+            'Broken Links Count': len(page.get('broken_links', []))
         }
         rows.append(row)
         
         # Add headings as separate rows
-        for heading in page['headings']:
+        for heading in page.get('headings', []):
             heading_row = {
-                'URL': page['url'],
-                'Title': page['title'],
-                'Meta Description': page['meta_description'],
+                'URL': page.get('url', ''),
+                'Title': page.get('title', ''),
+                'Meta Description': page.get('meta_description', ''),
                 'Heading': heading,
-                'Broken Links Count': len(page['broken_links']) if page['broken_links'] else 0
+                'Broken Links Count': len(page.get('broken_links', []))
             }
             rows.append(heading_row)
         
         # Add broken links as separate rows
-        if page['broken_links']:
-            for link in page['broken_links']:
-                broken_row = {
-                    'URL': page['url'],
-                    'Title': page['title'],
-                    'Meta Description': page['meta_description'],
-                    'Broken Link': link,
-                    'Headings Count': len(page['headings'])
-                }
-                rows.append(broken_row)
+        for link in page.get('broken_links', []):
+            broken_row = {
+                'URL': page.get('url', ''),
+                'Title': page.get('title', ''),
+                'Meta Description': page.get('meta_description', ''),
+                'Broken Link': link,
+                'Headings Count': len(page.get('headings', []))
+            }
+            rows.append(broken_row)
     
     return pd.DataFrame(rows)
 
@@ -65,13 +82,13 @@ def create_excel_download(report):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         # Summary sheet
         summary_data = []
-        for page in report['pages']:
+        for page in report.get('pages', []):
             summary_data.append({
-                'URL': page['url'],
-                'Title': page['title'],
-                'Meta Description': page['meta_description'],
-                'Headings Count': len(page['headings']),
-                'Broken Links Count': len(page['broken_links']) if page['broken_links'] else 0
+                'URL': page.get('url', ''),
+                'Title': page.get('title', ''),
+                'Meta Description': page.get('meta_description', ''),
+                'Headings Count': len(page.get('headings', [])),
+                'Broken Links Count': len(page.get('broken_links', []))
             })
         
         summary_df = pd.DataFrame(summary_data)
@@ -79,10 +96,10 @@ def create_excel_download(report):
         
         # Headings sheet
         headings_data = []
-        for page in report['pages']:
-            for heading in page['headings']:
+        for page in report.get('pages', []):
+            for heading in page.get('headings', []):
                 headings_data.append({
-                    'URL': page['url'],
+                    'URL': page.get('url', ''),
                     'Heading': heading
                 })
         
@@ -91,13 +108,12 @@ def create_excel_download(report):
         
         # Broken Links sheet
         broken_links_data = []
-        for page in report['pages']:
-            if page['broken_links']:
-                for link in page['broken_links']:
-                    broken_links_data.append({
-                        'URL': page['url'],
-                        'Broken Link': link
-                    })
+        for page in report.get('pages', []):
+            for link in page.get('broken_links', []):
+                broken_links_data.append({
+                    'URL': page.get('url', ''),
+                    'Broken Link': link
+                })
         
         if broken_links_data:
             broken_links_df = pd.DataFrame(broken_links_data)
@@ -159,8 +175,7 @@ def show_download_section(report):
 st.title("🔍 SEO Audit Tool")
 
 # Check if there's an existing report
-shared_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "shared")
-report_path = os.path.join(shared_dir, "report.json")
+report_path = os.path.join(SHARED_DIR, "report.json")
 existing_report = None
 if os.path.exists(report_path):
     try:
@@ -172,7 +187,7 @@ if os.path.exists(report_path):
 # Sidebar for existing report download
 if existing_report:
     st.sidebar.subheader("📋 Previous Report")
-    st.sidebar.write(f"Found report with {len(existing_report['pages'])} pages")
+    st.sidebar.write(f"Found report with {len(existing_report.get('pages', []))} pages")
     if st.sidebar.button("📥 Download Previous Report"):
         show_download_section(existing_report)
         st.sidebar.success("Download section added below!")
@@ -196,23 +211,22 @@ if st.button("🚀 Run Audit"):
         st.error("All URLs must start with http:// or https://")
     else:
         with st.spinner("Running SEO audit..."):
-            # Ensure shared directory exists
-            os.makedirs(shared_dir, exist_ok=True)
-            
             # Save URLs to shared/urls.txt
-            urls_path = os.path.join(shared_dir, "urls.txt")
+            urls_path = os.path.join(SHARED_DIR, "urls.txt")
             with open(urls_path, "w", encoding="utf-8") as f:
                 for u in urls:
                     f.write(u + "\n")
-            
             # Remove old report if exists
+            report_path = os.path.join(SHARED_DIR, "report.json")
             if os.path.exists(report_path):
                 os.remove(report_path)
-            
             # Call Go backend
             try:
-                backend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "backend")
-                result = subprocess.run(["go", "run", "main.go", "--file", urls_path], capture_output=True, text=True, cwd=backend_dir)
+                backend_dir = os.path.join(PROJECT_ROOT, "backend")
+                # Set environment variable for shared directory
+                env = os.environ.copy()
+                env['SHARED_DIR'] = SHARED_DIR
+                result = subprocess.run(["go", "run", "main.go", "--file", urls_path], capture_output=True, text=True, cwd=backend_dir, env=env)
                 if result.returncode != 0:
                     st.error(f"Backend error: {result.stderr}")
                 else:
@@ -228,9 +242,9 @@ if st.button("🚀 Run Audit"):
                         
                         # Display summary
                         st.subheader("📊 Audit Summary")
-                        total_pages = len(report['pages'])
-                        total_broken_links = sum(len(page['broken_links']) if page['broken_links'] else 0 for page in report['pages'])
-                        total_headings = sum(len(page['headings']) for page in report['pages'])
+                        total_pages = len(report.get('pages', []))
+                        total_broken_links = sum(len(page.get('broken_links', [])) for page in report.get('pages', []))
+                        total_headings = sum(len(page.get('headings', [])) for page in report.get('pages', []))
                         
                         col1, col2, col3 = st.columns(3)
                         with col1:
@@ -250,4 +264,4 @@ if st.button("🚀 Run Audit"):
                     else:
                         st.error("Report not generated.")
             except Exception as e:
-                st.error(f"Error running backend: {e}") 
+                st.error(f"Error running backend: {e}")

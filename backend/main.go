@@ -60,7 +60,13 @@ func main() {
 
 	report := AuditReport{}
 	for _, u := range urls {
-		page := PageReport{URL: u}
+		page := PageReport{
+			URL:         u,
+			Title:       "",
+			MetaDesc:    "",
+			Headings:    []string{},
+			BrokenLinks: []string{},
+		}
 		c := colly.NewCollector()
 
 		c.OnHTML("title", func(e *colly.HTMLElement) {
@@ -129,7 +135,13 @@ func main() {
 		report.Pages = append(report.Pages, page)
 	}
 
-	sharedDir := filepath.Join("..", "shared")
+	// Get the shared directory path from environment or use default
+	sharedDir := os.Getenv("SHARED_DIR")
+	if sharedDir == "" {
+		// Default to ../shared relative to current working directory
+		sharedDir = filepath.Join("..", "shared")
+	}
+
 	os.MkdirAll(sharedDir, 0755)
 	reportPath := filepath.Join(sharedDir, "report.json")
 	f, err := os.Create(reportPath)
