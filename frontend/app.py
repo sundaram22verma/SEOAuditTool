@@ -159,7 +159,8 @@ def show_download_section(report):
 st.title("🔍 SEO Audit Tool")
 
 # Check if there's an existing report
-report_path = os.path.join("..", "shared", "report.json")
+shared_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "shared")
+report_path = os.path.join(shared_dir, "report.json")
 existing_report = None
 if os.path.exists(report_path):
     try:
@@ -195,18 +196,23 @@ if st.button("🚀 Run Audit"):
         st.error("All URLs must start with http:// or https://")
     else:
         with st.spinner("Running SEO audit..."):
+            # Ensure shared directory exists
+            os.makedirs(shared_dir, exist_ok=True)
+            
             # Save URLs to shared/urls.txt
-            urls_path = os.path.join("..", "shared", "urls.txt")
+            urls_path = os.path.join(shared_dir, "urls.txt")
             with open(urls_path, "w", encoding="utf-8") as f:
                 for u in urls:
                     f.write(u + "\n")
+            
             # Remove old report if exists
-            report_path = os.path.join("..", "shared", "report.json")
             if os.path.exists(report_path):
                 os.remove(report_path)
+            
             # Call Go backend
             try:
-                result = subprocess.run(["go", "run", "../backend/main.go", "--file", urls_path], capture_output=True, text=True, cwd="../backend")
+                backend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "backend")
+                result = subprocess.run(["go", "run", "main.go", "--file", urls_path], capture_output=True, text=True, cwd=backend_dir)
                 if result.returncode != 0:
                     st.error(f"Backend error: {result.stderr}")
                 else:
